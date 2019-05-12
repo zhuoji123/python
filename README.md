@@ -1,2 +1,1 @@
-# python
-装饰器学习
+# python学习
