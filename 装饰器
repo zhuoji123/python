@@ -1,0 +1,130 @@
+背景
+
+以下场景为虚拟场景，只是为了说明装饰器的用法而已
+
+假如你开发了一个接口平台，对外提供接口服务，之前没有任何的认证功能，也没有任何的日志功能，代码如下：
+
+def test_ui():
+
+    print("ui自动化测试*******")
+
+def test_api():
+
+    print("接口自动化测试*******")
+
+def test_unit():
+
+print("单元自动化测试********")
+
+新的需求
+
+现在提了新的需求：
+
+1. 调用接口前增加登陆认证功能
+
+登陆成功后打印登陆日志
+
+分析：由于对外提供接口服务，我们不能要求外部调用的接口实现登陆后在调用，同时也不能改变之前的调用方式，一旦改变调用方式，外部的调用就需要做改变。这是不科学的。
+
+这时候我们就要想到一个开发过程中很重要的原则，就是开放封闭原则，即
+
+（1）已经实现的功能代码内部不允许修改
+
+（2）但外部需要被扩展
+
+意思就是：test_ui，test_api，test_unit内部代码不允许修改，但是可以在外部对他们进行扩展
+
+新需求代码实现
+
+实现如下：
+
+user_status = False #用户登录了就把这个改成True
+
+def login(func):  # 把要执行的模块从这里传进来
+
+    def inner():  #
+
+        _username = "test"  # DB存在的用户信息
+
+        _password = "test"  # DB存在的用户信息
+
+        global user_status
+
+        if user_status == False:
+
+            username = input("user:")
+
+            password = input("pasword:")
+
+            if username == _username and password == _password:
+
+                print("login successful....")
+
+                user_status = True
+
+            else:
+
+                print("wrong username or password!")
+
+        if user_status == True:
+
+            func()  # 验证通过了就调用响应的接口
+
+    return inner  # 用户调用login时，只会返回inner的内存地址，下次再调用时加上()才会执行inner函数
+
+ 
+
+@login
+
+def test_ui():
+
+    print("ui自动化测试*******")
+
+ 
+
+@login
+
+def test_api():
+
+    print("接口自动化测试*******")
+
+ 
+
+@login
+
+def test_unit():
+
+print("单元自动化测试********")
+
+装饰器执行逻辑分析
+
+执行逻辑分析：以test_ui为例来说明
+
+1. 程序开始运行，从上往下执行。读到def login(func): 的时候，把函数体加载到内存里，然后继续往下
+
+2. 执行到@login的时候，知道这是一个装饰器，是要立即执行的。于是程序开始运行@后面定义的函数（login）
+
+3. 然后程序回到login函数，开始执行装饰器的语法规则，规则是：被装饰的函数名字会被当作参数传递给装饰器，装饰函数执行它的内部代码后，会将它的的返回值赋值给被装饰的函数，即test_ui函数被当做参数传递给func，而test_ui这个函数名指向了inner函数
+
+4. 程序开始执行login函数内部的内容，碰到到了inner函数，inner函数定义块被程序观察到后不会立刻执行，而是读入内存中（这是默认规则）
+
+5. 继续往下执行，碰到return inner，返回值是个函数名，并且这个函数名会被赋值给test_ui这个被装饰的函数，也就是test_ui = inner。根据前面的知识，我们知道，此时test_ui 函数被新的函数inner覆盖了（实际上是test_ui 这个函数名更改成指向inner这个函数名指向的函数体内存地址，test_ui不再指向它原来的函数体的内存地址），再往后调用test_ui 的时候将执行inner函数内的代码（test_ui()变化成inner()），而不是先前的函数体。那么先前的函数体去哪了？还记得我们将test_ui当做参数传递给func这个形参么？func这个变量保存了老的函数在内存中的地址，通过它就可以执行老的函数体
+
+6. 接下来，进行登录的验证，如果验证通过，就执行func()函数（即test_ui()），验证失败则不执行
+
+7. 接下来，还没有结束。当外部系统调用test_ui函数时，，依然通过test_ui()的方式调用test_ui函数时，执行的就不再是旧的test_ui函数的代码，而是inner函数的代码。
+
+8. 调用执行结果如下：
+
+调用test_ui()函数，结果如下：
+
+user:test
+
+pasword:test
+
+login successful....
+
+ui自动化测试*******
+
+Process finished with exit code 0
+
